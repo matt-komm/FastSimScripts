@@ -180,12 +180,12 @@ class FunctionProfile:
         self._sqlcursor=sqlcursor
         self._functionName=functionName
         
-        
         functionId = self.getIdFromName(functionName)
         if len(functionId)==0:
             raise Exception("'"+functionName+"' not found")
         self._functionId = functionId[0]
         self._functionTitle = self.getNamesFromIdList([self._functionId])[self._functionId]
+        
         self._idChildrenList = self.getChildrenIds(self._functionId)
         self._idToNamesDict = self.getNamesFromIdList(self._idChildrenList)
         self._namesToIdDict = {}
@@ -201,7 +201,7 @@ class FunctionProfile:
         for value in self._idToCountDict.values():
             self._totalChildrenCount+=value
             
-        self._totalCount=self.getTotalCount()
+        self._totalCount=self._getTotalCount()
             
     def getChildrenIdDict(self):
         return self._idToNamesDict
@@ -211,36 +211,22 @@ class FunctionProfile:
         
     def getChildrenCountDict(self):
         return self._idToCountDict
-    
-    def compare(self,profile,lockFunctionNameList):
-        nameToIdList1=self.getIdsFromNameList(lockFunctionNameList)
-        idToCountList1=self.getCountFromIdList(nameToIdList1.values())
-        nameToIdList2=profile.getIdsFromNameList(lockFunctionNameList)
-        idToCountList2=profile.getCountFromIdList(nameToIdList2.values())
-        print nameToIdList1,idToCountList1
-        print nameToIdList2,idToCountList2
         
-    def getTotalCount(self):
+    def _getTotalCount(self):
         for row in self._sqlcursor.execute("SELECT summary.total_count FROM summary"):
             return int(row[0])
         
-    def getParentIds(nameid, threshold=0):
+    def _getParentIds(nameid):
         parentIds=[]
         for row in self._sqlcursor.execute("SELECT parents.self_id FROM parents WHERE parents.child_id='"+str(nameid)+"' AND parents.to_child_count>"+str(threshold)):
             parentIds.append(row[0])
         return parentIds
         
-    def getChildrenIds(self,nameid, threshold=0):
+    def _getChildrenIds(self,nameid):
         childIds=[]
         for row in self._sqlcursor.execute("SELECT children.self_id FROM children WHERE children.parent_id='"+str(nameid)+"' AND children.from_parent_count>"+str(threshold)):
             childIds.append(row[0])
         return childIds
-
-    def getEvilFunctions(self,threshold):
-        evilFunctionIds=[]
-        for row in self._sqlcursor.execute("SELECT mainrows.id, mainrows.self_count FROM mainrows WHERE mainrows.self_count>"+str(threshold)):
-            evilFunctionIds.append(row[0])
-        return evilFunctionIds
       
     def getNameFromId(self,nameid):
         result=[]
@@ -254,7 +240,7 @@ class FunctionProfile:
             result.append(row[1])
         return result
 
-    def getCountFromIdList(self,nameidList):
+    def _getCountFromIdList(self,nameidList):
         result={}
         cmd="SELECT mainrows.cumulative_count, mainrows.id FROM mainrows WHERE "
         for index in range(len(nameidList)):
@@ -267,7 +253,7 @@ class FunctionProfile:
             result[int(row[1])]=row[0]
         return result
         
-    def getNamesFromIdList(self,nameidList):
+    def _getNamesFromIdList(self,nameidList):
         result={}
         cmd="SELECT symbols.name, mainrows.id FROM mainrows INNER JOIN symbols ON symbols.id in (mainrows.symbol_id) WHERE "
         for index in range(len(nameidList)):
@@ -281,7 +267,7 @@ class FunctionProfile:
             result[int(row[1])]=row[0]
         return result
         
-    def getIdsFromNameList(self,nameList):
+    def _getIdsFromNameList(self,nameList):
         result={}
         cmd="SELECT symbols.name, mainrows.id FROM mainrows INNER JOIN symbols ON symbols.id in (mainrows.symbol_id) WHERE "
         for index in range(len(nameList)):
@@ -295,134 +281,22 @@ class FunctionProfile:
             result[row[0]]=int(row[1])
         return result
         
-    def plotComparison(self,anotherProfile,outName="out.pdf"):
-        comparison=[]
-        
-        scalefactor=1.0*self._totalCount/anotherProfile._totalCount
-        for i in range(len(self._sortedByCount)):
-            thisId = self._sortedByCount[i][0]
-            name = self._idToNamesDict[thisId]
-            thisCount=self._idToCountDict[thisId]
-            otherCount=0
-            if anotherProfile._namesToIdDict.has_key(name):
-                otherId = anotherProfile._namesToIdDict[name]
-                otherCount=scalefactor*anotherProfile._idToCountDict[thisId]
-            print name,thisCount,otherCount
-        
+def plotComparison(self,anotherProfile,outName="out.pdf"):
+    comparison=[]
     
-        '''
-        rootObj=[]
-        hist=ROOT.TH2D("histBars","",int(self._totalChildrenCount),self._sortedByCount[0][1]/self._totalChildrenCount,1.0,len(self._sortedByCount)+1,0,len(self._sortedByCount)+1)
-        hist.GetYaxis().SetBinLabel(1,"")
-        hist.GetXaxis().SetTitle("rel. counts")
-        hist.GetYaxis().SetTitle("methods")
+    for i in range(len(self._sortedByCount)):
+        thisId = self._sortedByCount[i][0]
+        name = self._idToNamesDict[thisId]
+        thisCount=self._idToCountDict[thisId]
+        otherCount=0
+        if anotherProfile._namesToIdDict.has_key(name):
+            otherId = anotherProfile._namesToIdDict[name]
+            otherCount=scalefactor*anotherProfile._idToCountDict[thisId]
+        print name,thisCount,otherCount
         
-        canvas=ROOT.TCanvas("canvas","",800,600)
-        hist.Draw("AXIS")
-        
-        ptext=ROOT.TPaveText(0.1,0.92,0.9,0.96,"NDC")
-        rootObj.append(ptext)
-        ptext.SetFillStyle(0)
-        ptext.SetTextFont(42)
-        ptext.SetBorderSize(0)
-        ptext.AddText(self._functionTitle.split("(")[0])
-        ptext.Draw("Same")
-        
-        for index in range(stripedLength):
-            box = ROOT.TBox(0,index+0.1,self._sortedByCount[index][1]/self._totalChildrenCount,index+0.9)
-            rootObj.append(box)
-            box.Draw("SameF")
-            box.SetFillColor(ROOT.kOrange+1)
-            ptext=ROOT.TPaveText(0,index+0.2,1,index+0.8,"")
-            ptext.SetFillStyle(0)
-            ptext.AddText(self._idToNamesDict[self._sortedByCount[index][0]].split("(")[0])
-            ptext.SetTextFont(62)
-            ptext.SetTextAlign(12)
-            ptext.SetBorderSize(0)
-            ptext.Draw("Same")
-            rootObj.append(ptext)
-            
-        rootObj.append(ptext)
-        hist.Draw("AXIS SAME")
-        canvas.SetLogx(1)
-        canvas.Update()
-        canvas.Print(outName)
-        #canvas.WaitPrimitive()
-        '''
-    def plotComposition(self,stopAt=0.99,outName="profile.pdf"):
-        stripedLength=0
-        remainingCounts=0.0
-        stripedCounts=0.0
-        for index in range(len(self._sortedByCount)):
-            stripedCounts+=self._sortedByCount[index][1]
-            if (stripedCounts/self._totalChildrenCount<stopAt):
-                stripedLength+=1
-            else:
-                remainingCounts+=self._sortedByCount[index][1]
-                
-        rootObj=[]
-        hist=ROOT.TH2D("histBars","",int(self._totalChildrenCount),self._sortedByCount[stripedLength][1]/self._totalChildrenCount,1.0,stripedLength+1,0,stripedLength+1)
-        hist.GetYaxis().SetBinLabel(1,"")
-        hist.GetXaxis().SetTitle("rel. counts")
-        hist.GetYaxis().SetTitle("methods")
-        
-        canvas=ROOT.TCanvas("canvas","",800,600)
-        hist.Draw("AXIS")
-        
-        ptext=ROOT.TPaveText(0.1,0.92,0.9,0.96,"NDC")
-        rootObj.append(ptext)
-        ptext.SetFillStyle(0)
-        ptext.SetTextFont(42)
-        ptext.SetBorderSize(0)
-        ptext.AddText(self._functionTitle.split("(")[0])
-        ptext.Draw("Same")
-        
-        for index in range(stripedLength):
-            box = ROOT.TBox(0,index+0.1,self._sortedByCount[index][1]/self._totalChildrenCount,index+0.9)
-            rootObj.append(box)
-            box.Draw("SameF")
-            box.SetFillColor(ROOT.kOrange+1)
-            ptext=ROOT.TPaveText(0,index+0.2,1,index+0.8,"")
-            ptext.SetFillStyle(0)
-            ptext.AddText(self._idToNamesDict[self._sortedByCount[index][0]].split("(")[0])
-            ptext.SetTextFont(62)
-            ptext.SetTextAlign(12)
-            ptext.SetBorderSize(0)
-            ptext.Draw("Same")
-            rootObj.append(ptext)
-            
-        box = ROOT.TBox(0,stripedLength+0.1,remainingCounts/self._totalChildrenCount,stripedLength+0.9)
-        rootObj.append(box)
-        box.Draw("SameF")
-        box.SetFillColor(ROOT.kOrange+1)
-        ptext=ROOT.TPaveText(0,stripedLength+0.2,1,stripedLength+0.8,"")
-        ptext.SetFillStyle(0)
-        ptext.AddText("other")
-        ptext.SetTextFont(62)
-        ptext.SetTextAlign(12)
-        ptext.SetBorderSize(0)
-        ptext.Draw("Same")
-        rootObj.append(ptext)
-        hist.Draw("AXIS SAME")
-        canvas.SetLogx(1)
-        canvas.Update()
-        canvas.Print(outName)
-        #canvas.WaitPrimitive()
+#def plotComposition(self,stopAt=0.99,outName="profile.pdf"):
+    
     
 if __name__=="__main__":
-    connection_old = sqlite3.connect("igprof.old_hardcore.sql3")
-    doEventProfile_old = FunctionProfile(connection_old.cursor(),"'%EDProducer::doEvent%'")
-    connection_new = sqlite3.connect("igprof.new_hardcore.sql3")
-    doEventProfile_new = FunctionProfile(connection_old.cursor(),"'%EDProducer::doEvent%'")
-    doEventProfile_old.plotComparison(doEventProfile_new,outName="new_doEvent.pdf")
-    '''
-    connection = sqlite3.connect("igprof.oldSeeding.sql3")
-    sqlCursor = connection.cursor()
-    doEventProfileNew = FunctionProfile(sqlCursor,"'%EDProducer::doEvent%'")
-    doEventProfileNew.compare(doEventProfileOld,["'%FamosProducer::produce%'","'%SITrackerGaussianSmearingRecHitConverter::produce%'"])
-    
-    #doEventProfileNew.plotComposition(outName="old_doEvent.pdf")
-    trajectorySeedProfileNew = FunctionProfile(sqlCursor,"'%TrajectorySeedProducer::produce%'")
-    #trajectorySeedProfileNew.plotComposition(outName="old_seed.pdf")
-    '''
+    pass
     
