@@ -176,7 +176,7 @@ class CompositionPlot:
             maximum=max(maximum,remainingCounts)
         n=len(strippedCountList)
         axis=ROOT.TH2F("axis"+str(random.random()),";counts;methods",500,minimum*scaleFactor,maximum*1.1*scaleFactor,n,0.5,n+0.5)
-        canvas=ROOT.TCanvas("composition"+str(random.random()),"",800,600)
+        canvas=ROOT.TCanvas("composition"+str(random.random()),"",900,800)
         axis.Draw("AXIS")
         
         rootObj=[]
@@ -199,17 +199,116 @@ class CompositionPlot:
         canvas.Update()
         canvas.WaitPrimitive()
         
+class ComparisonPlot:
+    def __init__(self,function1,function2,match=lambda x,y: x==y):
+        self._function1=function1
+        self._function2=function2
+        self._sortedComposition1=self._function1.getSortedCountComposition()
+        self._sortedComposition2=self._function2.getSortedCountComposition()
         
- 
+        self._matchedFunctions=[]
+        # note: the operator [:] copies the list
+        for item1 in self._sortedComposition1[:]:
+            for item2 in self._sortedComposition2[:]:
+                if match(item1["name"],item2["name"]):
+                    self._matchedFunctions.append({"name":item1["name"],"count1":item1["count"],"count2":item2["count"]})
+                    self._sortedComposition1.remove(item1)
+                    self._sortedComposition2.remove(item2)
+                    break
+        '''                 
+        for item in self._matchedFunctions:
+            print "matched: ",item["name"]#.split("(")[0]
+        '''
+        for item in self._sortedComposition1:
+            print "unmatched1: ",item["name"]#.split("(")[0]
+            
+        for item in self._sortedComposition2:
+            print "unmatched2: ",item["name"]#.split("(")[0]
+            
+            
+    def plot(self, scaleFactor1=1.0, scaleFactor2=1.0, log=True,displayOnly=-1,formatName=lambda name: name.split("(")[0], formatDiff=lambda x,y: str(round((y-x)/x*100.0,1))+"%"):
+        strippedCountList=[]
+        maximum=0.0
+        minimum=1.0
+        minimum=min(minimum*scaleFactor1,minimum*scaleFactor2)
+        if displayOnly<0:
+            for index in range(len(self._matchedFunctions)):
+                strippedCountList.append(self._matchedFunctions[index])
+                maximum=max(maximum,self._matchedFunctions[index]["count1"]*scaleFactor1)
+                maximum=max(maximum,self._matchedFunctions[index]["count2"]*scaleFactor2)
+        else:
+            for index in range(displayOnly):
+                strippedCountList.append(self._matchedFunctions[index])
+                maximum=max(maximum,self._matchedFunctions[index]["count1"]*scaleFactor1)
+                maximum=max(maximum,self._matchedFunctions[index]["count2"]*scaleFactor2)
+            remainingCounts1=0.0
+            remainingCounts2=0.0
+            for index in range(displayOnly,len(self._matchedFunctions)):
+                remainingCounts1+=self._matchedFunctions[index]["count1"]
+                remainingCounts2+=self._matchedFunctions[index]["count2"]
+            #add the unmatched as well
+            for item in self._sortedComposition1:
+                remainingCounts1+=item["count"]
+            for item in self._sortedComposition2:
+                remainingCounts2+=item["count"]
+                
+            strippedCountList.append({"count1":remainingCounts1,"count2":remainingCounts2,"name":"other"})
+            maximum=max(maximum,remainingCounts1*scaleFactor1)
+            maximum=max(maximum,remainingCounts2*scaleFactor2)
+        n=len(strippedCountList)
+        axis=ROOT.TH2F("axis"+str(random.random()),";counts;methods",500,minimum,maximum*1.1,n,0.5,n+0.5)
+        canvas=ROOT.TCanvas("composition"+str(random.random()),"",900,800)
+        axis.Draw("AXIS")
+        
+        rootObj=[]
+        
+        for index in range(len(strippedCountList)):
+            posy=index+1.0
+            posx1=strippedCountList[index]["count1"]*scaleFactor1
+            posx2=strippedCountList[index]["count2"]*scaleFactor2
+            box=ROOT.TBox(minimum,posy-0.3,posx1,posy+0.3)
+            rootObj.append(box)
+            box.SetFillColor(ROOT.kOrange+6)
+            box.Draw("SameF")
+            marker=ROOT.TMarker(posx2,posy,21)
+            rootObj.append(marker)
+            marker.SetMarkerColor(ROOT.kBlue)
+            marker.SetMarkerSize(1.2)
+            marker.Draw("Same")
+            pText=ROOT.TPaveText(minimum,posy-0.3,maximum*1.1,posy+0.3)
+            pText.SetFillStyle(0)
+            rootObj.append(pText)
+            pText.AddText(formatName(strippedCountList[index]["name"]))
+            pText.SetTextAlign(12)
+            pText.Draw("Same")
+            
+            pPercentage=ROOT.TPaveText(minimum,posy-0.3,maximum*1.1,posy+0.3)
+            pPercentage.SetFillStyle(0)
+            pPercentage.SetBorderSize(0)
+            rootObj.append(pPercentage)
+            pPercentage.AddText(formatDiff(posx1,posx2))
+            pPercentage.SetTextAlign(32)
+            pPercentage.Draw("Same")
+        canvas.SetLogx(log)
+        axis.Draw("AXIS Same")
+        canvas.Update()
+        canvas.WaitPrimitive()
+            
+
 if __name__=="__main__":
     parser = OptionParser()
     #parser.add_option("-f", "--file", dest="filename",help="write report to FILE", metavar="FILE")
     #parser.add_option("-q", "--quiet",action="store_false", dest="verbose", default=True,help="don't print status messages to stdout")
 
     (options, args) = parser.parse_args()
-    profile = IgProfFile(args[0])
-    #print profile
-    function = profile.findFunction("'%edm::EDProducer::doEvent%'")
+    profile1 = IgProfFile(args[0])
+    function1 = profile1.findFunction("'%edm::EDProducer::doEvent%'")
+    profile2 = IgProfFile(args[1])
+    function2 = profile2.findFunction("'%edm::EDProducer::doEvent%'")
+    comparsionPlot=ComparisonPlot(function1,function2,match=lambda x,y: (x==y) or (x.find("TrajectorySeedProducer")!=-1 and y.find("TrajectorySeedProducer")!=-1))
+    comparsionPlot.plot(displayOnly=30,log=1)
+    '''
     compositionPlot = CompositionPlot(function)
     compositionPlot.plot(displayOnly=20)
+    '''
     

@@ -1,8 +1,5 @@
-void TrackValHistoPublisher() 
+void TrackValHistoPublisher(char* newFile="DQM_new.root",char* refFile="DQM_old.root") 
 {
-  char* newFile="DQM_new.root";
-  char* refFile="DQM_old.root";
-
   globalPlots(newFile,refFile,true,"eta");
   globalPlots(newFile,refFile,false,"eta");
 
