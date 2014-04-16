@@ -36,6 +36,9 @@
 
 #include "DataFormats/TrajectorySeed/interface/TrajectorySeed.h"
 
+#include "FastSimScripts/TrackingAnalyzer/interface/TrackerComponentIdentifier.h"
+#include "FastSimScripts/TrackingAnalyzer/interface/TrackerComponentTree.h"
+
 #include "FWCore/ServiceRegistry/interface/Service.h"
 #include "CommonTools/UtilAlgos/interface/TFileService.h"
 
@@ -75,6 +78,7 @@ class TrackerGeometryAnalyzer : public edm::EDAnalyzer {
         edm::Service<TFileService> _fs;
         TCanvas* _cvZPerp;
         TCanvas* _cvXY;
+        TrackerComponentTree _trackerComponentTree;
         edm::ESHandle<TrackerGeometry> _trackerGeometry;
         edm::ESHandle<TrackerTopology> _trackerTopology;
 };
@@ -321,12 +325,18 @@ TrackerGeometryAnalyzer::beginRun(edm::Run const&, edm::EventSetup const& es)
     for (unsigned int idet = 0; idet<detIdList.size();++idet)
     {
         const DetId& detId = detIdList[idet];
+        const TrackerComponentIdentifier* tci = TrackerComponentIdentifier::create(detId,*_trackerTopology);
+        if (tci)
+        {
+            _trackerComponentTree.insert(tci);
+        }
         //std::cout<<"idet: "<<idet<<", name="<<_trackerTopology->print(detId)<<std::endl;
         _cvZPerp->cd();
         drawDetComponentZPerp(detId);
         _cvXY->cd();
         drawDetComponentXY(detId);
     }
+    _trackerComponentTree.print();
 }
 
 void

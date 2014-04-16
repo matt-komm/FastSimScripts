@@ -39,6 +39,8 @@
 #include "FWCore/ServiceRegistry/interface/Service.h"
 #include "CommonTools/UtilAlgos/interface/TFileService.h"
 
+
+
 #include "CommonTools/Utils/interface/TFileDirectory.h"
 #include "TTree.h"
 #include "TH2F.h"
@@ -76,7 +78,6 @@ class TrajectorySeedAnalyzer : public edm::EDAnalyzer {
         TTree* _seedTree;
         TH2F* _hitsZPerp;
         TH2F* _hitsXY;
-        TCanvas* _cv;
         edm::ESHandle<TrackerGeometry> _trackerGeometry;
         edm::ESHandle<TrackerTopology> _trackerTopology;
 };
@@ -128,7 +129,6 @@ TrajectorySeedAnalyzer::analyze(const edm::Event& iEvent, const edm::EventSetup&
             _hitsZPerp->Fill(globalPoint.z(),std::sqrt(globalPoint.x()*globalPoint.x()+globalPoint.y()*globalPoint.y()));
             _hitsXY->Fill(globalPoint.x(),globalPoint.y());
         }
-        
     }
 }
 
