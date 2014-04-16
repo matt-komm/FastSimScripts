@@ -64,12 +64,59 @@ process.TFileService = cms.Service("TFileService",
       closeFileFast = cms.untracked.bool(True)
 )
 
-from FastSimScripts.TrajectorySeedAnalyzer.TrajectorySeedAnalyzer_cfi import *
-process.trajectorySeedAnalyzer = trajectorySeedAnalyzer.clone()
+from FastSimScripts.TrackingAnalyzer.TrackerGeometryAnalyzer_cfi import *
+process.trackerGeometryAnalyzer = trackerGeometryAnalyzer.clone()
 
+from FastSimScripts.TrackingAnalyzer.TrajectorySeedAnalyzer_cfi import *
+#iter 0
+process.iterativeInitialSeedsAnalyzer = trajectorySeedAnalyzer.clone()
+process.iterativeInitialSeedsAnalyzer.trajectorySeeds = cms.InputTag("iterativeInitialSeeds","InitialPixelTriplets","PROD")
+#iter 1
+process.iterativeLowPtTripletSeedsAnalyzer = trajectorySeedAnalyzer.clone()
+process.iterativeLowPtTripletSeedsAnalyzer.trajectorySeeds = cms.InputTag("iterativeLowPtTripletSeeds","LowPtPixelTriplets","PROD")
+#iter 2
+process.iterativePixelPairSeedsAnalyzer = trajectorySeedAnalyzer.clone()
+process.iterativePixelPairSeedsAnalyzer.trajectorySeeds = cms.InputTag("iterativePixelPairSeeds","PixelPair","PROD")
+#iter 3
+process.iterativeDetachedTripletSeedsAnalyzer = trajectorySeedAnalyzer.clone()
+process.iterativeDetachedTripletSeedsAnalyzer.trajectorySeeds = cms.InputTag("iterativeDetachedTripletSeeds","DetachedPixelTriplets","PROD")
+#iter 4
+process.iterativeMixedTripletStepSeedsAnalyzer = trajectorySeedAnalyzer.clone()
+process.iterativeMixedTripletStepSeedsAnalyzer.trajectorySeeds = cms.InputTag("iterativeMixedTripletStepSeeds","MixedTriplets","PROD")
+#iter 5
+process.iterativePixelLessSeedsAnalyzer = trajectorySeedAnalyzer.clone()
+process.iterativePixelLessSeedsAnalyzer.trajectorySeeds = cms.InputTag("iterativePixelLessSeeds","PixelLessPairs","PROD")
+#iter 6
+process.iterativeTobTecSeedsAnalyzer = trajectorySeedAnalyzer.clone()
+process.iterativeTobTecSeedsAnalyzer.trajectorySeeds = cms.InputTag("iterativeTobTecSeeds","TobTecLayerPairs","PROD") 
 
+#other
+#process.ancientMuonSeedAnalyzer = trajectorySeedAnalyzer.clone()
+#process.ancientMuonSeedAnalyzer.trajectorySeeds = cms.InputTag("ancientMuonSeed","","PROD")
+
+#process.newCombinedSeedsAnalyzer = trajectorySeedAnalyzer.clone()
+#process.newCombinedSeedsAnalyzer.trajectorySeeds = cms.InputTag("newCombinedSeeds","","PROD")
+
+process.pixelTripletSeedsAnalyzer = trajectorySeedAnalyzer.clone()
+process.pixelTripletSeedsAnalyzer.trajectorySeeds = cms.InputTag("pixelTripletSeeds","PixelTriplet","PROD")
+    
+
+process.trackingAnalyzerSequence=cms.Sequence(
+    process.trackerGeometryAnalyzer*
+    process.iterativeInitialSeedsAnalyzer*
+    process.iterativeLowPtTripletSeedsAnalyzer*
+    process.iterativePixelPairSeedsAnalyzer*
+    process.iterativeDetachedTripletSeedsAnalyzer*
+    process.iterativeMixedTripletStepSeedsAnalyzer*
+    process.iterativePixelLessSeedsAnalyzer*
+    process.iterativeTobTecSeedsAnalyzer*
+    #process.ancientMuonSeedAnalyzer*
+    #process.newCombinedSeedsAnalyzer*
+    process.pixelTripletSeedsAnalyzer
+)
+    
 process.source = cms.Source("EmptySource")
-process.p1 = cms.Path(process.generator*process.famosWithEverything*process.trajectorySeedAnalyzer)
+process.p1 = cms.Path(process.generator*process.famosWithEverything*process.trackingAnalyzerSequence)
 
 '''
 # To write out events
