@@ -4,7 +4,7 @@ process = cms.Process("PROD")
 
 # Number of events to be generated
 process.maxEvents = cms.untracked.PSet(
-    input = cms.untracked.int32(4)
+    input = cms.untracked.int32(20)
 )
 
 process.ProfilerService = cms.Service("ProfilerService",
