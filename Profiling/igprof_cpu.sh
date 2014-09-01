@@ -7,7 +7,7 @@ then
 fi
 echo "name: "$name
 #(time igprof -d -t cmsRun -pp -z -o igprof.myrun.gz cmsRun $1) >& out.myrun.txt </dev/null
-igprof -d -pp -z -o igprof.$name.gz cmsRun $1
+igprof -d -pp -z -o igprof.$name.gz -t cmsRun cmsRun $1
 echo "create analysis..."
 igprof-analyse -d -v -g igprof.$name.gz >& igprof.$name.res
 igprof-analyse --sqlite -d -v -g igprof.$name.gz | sqlite3 igprof.$name.sql3

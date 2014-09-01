@@ -11,7 +11,7 @@ cmsDriver.py TTbar_8TeV_cfi.py \
 --beamspot Realistic8TeVCollision \
 --eventcontent=FEVTDEBUGHLT \
 --datatier GEN-SIM-DIGI-RECO \
--n 100 \
+-n 4000 \
 --fileout=file:TTbarValidation_$1.root \
 --python_filename=TTbarValidation_$1_cfg.py 
 

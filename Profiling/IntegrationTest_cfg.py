@@ -4,15 +4,15 @@ process = cms.Process("PROD")
 
 # Number of events to be generated
 process.maxEvents = cms.untracked.PSet(
-    input = cms.untracked.int32(20)
+    input = cms.untracked.int32(5)
 )
-
+'''
 process.ProfilerService = cms.Service("ProfilerService",
    lastEvent = cms.untracked.int32(3),
     firstEvent = cms.untracked.int32(2),
     paths = cms.untracked.vstring('FullEvent')
 )
-
+'''
 # Include DQMStore, needed by the famosSimHits
 process.DQMStore = cms.Service( "DQMStore")
 
