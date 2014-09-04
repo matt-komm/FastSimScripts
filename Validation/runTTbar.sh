@@ -7,13 +7,14 @@ cmsDriver.py TTbar_8TeV_cfi.py \
 -s GEN,SIM,RECO,HLT,VALIDATION \
 --fast \
 --pileup=NoPileUp \
+--eventcontent FEVTDEBUGHLT,DQM \
+--datatier GEN-SIM-DIGI-RECO,DQMIO \
 --conditions auto:startup_GRun \
 --beamspot Realistic8TeVCollision \
---eventcontent=FEVTDEBUGHLT \
---datatier GEN-SIM-DIGI-RECO \
--n 4000 \
+-n 1000 \
 --fileout=file:TTbarValidation_$1.root \
---python_filename=TTbarValidation_$1_cfg.py 
+--python_filename=TTbarValidation_$1_cfg.py \
+--mc
 
 cmsDriver.py step3 \
 -s HARVESTING:validationHarvestingFS \
