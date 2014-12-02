@@ -1,6 +1,6 @@
 PREFIX="testing_"
-CMSSWV="CMSSW_7_2_X_2014-09-16-0200"
-GITBRANCH="new_iter"
+CMSSWV="CMSSW_7_4_X_2014-11-28-0200"
+GITBRANCH="testing"
 #GITBRANCH="iter5-config-fix"
 BASEDIR=`pwd`
 OUTPUTDIR=/afs/cern.ch/user/m/mkomm/FastSim/dev_scl6/testing
@@ -41,7 +41,9 @@ echo "--------------------git------------------"
 echo "--------------------git------------------" >> $STATFILE 2>&1
 git cms-init > $GITFILE 2>&1
 cat $GITFILE >> $STATFILE
-git cms-merge-topic matt-komm:$GITBRANCH > $GITFILE 2>&1
+if [ -n "${VAR}" ]; then
+    git cms-merge-topic matt-komm:$GITBRANCH > $GITFILE 2>&1
+fi
 cat $GITFILE >> $STATFILE
 git read-tree -mu HEAD > $GITFILE 2>&1
 cat $GITFILE >> $STATFILE
@@ -55,7 +57,11 @@ cat $COMPILEFILE >> $STATFILE
 
 echo "--------------------validation------------------"
 echo "--------------------validation------------------" >> $STATFILE 2>&1 
+if [ -n "${VAR}" ]; then
 $BASEDIR/$PREFIX$CMSSWV/src/FastSimScripts/Validation/runTTbar.sh $GITBRANCH 1000 2>&1 | tee -a $STATFILE 
+else
+$BASEDIR/$PREFIX$CMSSWV/src/FastSimScripts/Validation/runTTbar.sh base 1000 2>&1 | tee -a $STATFILE
+fi
 
 echo "--------------------copy output------------------"
 echo "--------------------copy output------------------" >> $STATFILE 2>&1 
