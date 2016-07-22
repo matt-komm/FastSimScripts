@@ -19,6 +19,7 @@ class IgProfFile:
         self._nameToIdDict={}
         self._idToNameDict={}
         self._idToCountDict={}
+        self._idToFileDict={}
         self._idToChildrenDict={}
         self._idToParentDict={}
         #just cache the first 200 ids
@@ -30,10 +31,11 @@ class IgProfFile:
                 self._totalCount=int(row[0])
         return self._totalCount
         
-    def addItem(self,name,idNum,count):
+    def addItem(self,name,idNum,count,fileName):
         self._idToNameDict[idNum]=name
         self._nameToIdDict[name]=idNum
         self._idToCountDict[idNum]=count
+        self._idToFileDict[idNum]=fileName
         
     def load(self, idList):
         idsToLoad=[]
@@ -48,11 +50,12 @@ class IgProfFile:
             strList+="'"+str(idNumber)+"',"
         strList=strList[:-1]+")"
         print "loading: ",strList
-        for row in self._sqlcursor.execute("SELECT symbols.name, mainrows.id, mainrows.cumulative_count FROM mainrows INNER JOIN symbols ON symbols.id in (mainrows.symbol_id) WHERE mainrows.id IN "+strList):
+        for row in self._sqlcursor.execute("SELECT symbols.name, mainrows.id, mainrows.cumulative_count, files.name FROM mainrows INNER JOIN symbols ON symbols.id in (mainrows.symbol_id) INNER JOIN files ON files.id in (symbols.filename_id) WHERE mainrows.id IN "+strList):
             name = row[0]
             idNum = int(row[1])
             count = int(row[2])
-            self.addItem(name,idNum,count)
+            fileName = str(row[3])
+            self.addItem(name,idNum,count,fileName)
             
     def getNameFromId(self, idNumber):
         if not self._idToNameDict.has_key(idNumber):
@@ -64,14 +67,20 @@ class IgProfFile:
             self.load([idNumber])
         return self._idToCountDict[idNumber]
         
+    def getFileNameFromId(self,idNumber):
+        if not self._idToFileDict.has_key(idNumber):
+            self.load([idNumber])
+        return self._idToFileDict[idNumber]
+        
     def findIdsFromName(self,name):
         matches={}
         if not self._nameToIdDict.has_key(name):
-            for row in self._sqlcursor.execute("SELECT symbols.name, mainrows.id, mainrows.cumulative_count FROM mainrows INNER JOIN symbols ON symbols.id in (mainrows.symbol_id) WHERE symbols.name LIKE "+str(name)):
+            for row in self._sqlcursor.execute("SELECT symbols.name, mainrows.id, mainrows.cumulative_count, files.name FROM mainrows INNER JOIN symbols ON symbols.id in (mainrows.symbol_id) INNER JOIN files ON files.id in (symbols.filename_id) WHERE symbols.name LIKE "+str(name)):
                 name = row[0]
                 idNum = int(row[1])
                 count = int(row[2])
-                self.addItem(name,idNum,count)
+                fileName = str(row[3])
+                self.addItem(name,idNum,count,fileName)
                 matches[name]=idNum
         else:
             matches[name]=self._nameToIdDict[name]
@@ -114,10 +123,12 @@ class IgProfFile:
     
     def findFunction(self,name):
         matchedNames = self.findIdsFromName(name)
-        if (len(matchedNames.keys())==1):
-            return Function(self,matchedNames.values()[0])
-        else:
-            raise Exception("multiple matches where found: "+str(matchedNames.keys()))
+        functions = {}
+        for k in matchedNames.keys():
+            functions[k]=Function(self,matchedNames[k])
+        return functions
+        if (len(matchedNames.keys())==0):
+            raise Exception("no matches where found: "+name)
     
        
 class Function:
@@ -126,29 +137,39 @@ class Function:
         self._id=idNumber
         self._name=self._igProfFile.getNameFromId(self._id)
         self._count=self._igProfFile.getCountFromId(self._id)
+        self._fileName=self._igProfFile.getFileNameFromId(self._id)
+        
         self._childrenIdList=self._igProfFile.getChildrenIds(self._id)
         self._childrenNameDict={}
         self._childrenCountDict={}
+        self._childrenFileDict={}
         for childIdNumber in self._childrenIdList:
             self._childrenNameDict[childIdNumber]=self._igProfFile.getNameFromId(childIdNumber)
             self._childrenCountDict[childIdNumber]=self._igProfFile.getCountFromId(childIdNumber)
+            self._childrenFileDict[childIdNumber]=self._igProfFile.getFileNameFromId(childIdNumber)
+            
         self._parentIdList=self._igProfFile.getParentIds(self._id)
         self._parentNameDict={}
         self._parentCountDict={}
+        self._parentFileDict={}
         for parentIdNumber in self._parentIdList:
             self._parentNameDict[parentIdNumber]=self._igProfFile.getNameFromId(parentIdNumber)
             self._parentCountDict[parentIdNumber]=self._igProfFile.getCountFromId(parentIdNumber)
+            self._parentFileDict[childIdNumber]=self._igProfFile.getFileNameFromId(childIdNumber)
             
     def getCount(self):
         return self._count
         
     def getName(self):
         return self._name
+        
+    def getFileName(self):
+        return self._fileName
 
     def getSortedCountComposition(self):
         sortedList=[]
         for childId in self._childrenCountDict:
-            sortedList.append({"id":childId,"count":self._childrenCountDict[childId],"name":self._childrenNameDict[childId]})
+            sortedList.append({"id":childId,"count":self._childrenCountDict[childId],"name":self._childrenNameDict[childId],"fileName":self._childrenFileDict[childId]})
         sortedList.sort(key=lambda child: child["count"],reverse=True)
         return sortedList
         
@@ -172,7 +193,7 @@ class CompositionPlot:
             remainingCounts=0.0
             for index in range(displayOnly,len(self._sortedComposition)):
                 remainingCounts+=self._sortedComposition[index]["count"]
-            strippedCountList.append({"id":-1,"count":remainingCounts,"name":"other"})
+            strippedCountList.append({"id":-1,"count":remainingCounts,"name":"other","fileName":"other"})
             maximum=max(maximum,remainingCounts)
         n=len(strippedCountList)
         axis=ROOT.TH2F("axis"+str(random.random()),";counts;methods",500,minimum*scaleFactor,maximum*1.1*scaleFactor,n,0.5,n+0.5)
@@ -191,7 +212,7 @@ class CompositionPlot:
             pText=ROOT.TPaveText(minimum*scaleFactor,posy-0.3,maximum*1.1*scaleFactor,posy+0.3)
             pText.SetFillStyle(0)
             rootObj.append(pText)
-            pText.AddText(formatName(strippedCountList[index]["name"]))
+            pText.AddText(formatName(strippedCountList[index]["fileName"]))
             pText.SetTextAlign(12)
             pText.Draw("Same")
         canvas.SetLogx(log)
@@ -302,17 +323,24 @@ if __name__=="__main__":
 
     (options, args) = parser.parse_args()
     profile1 = IgProfFile(args[0])
-    function1 = profile1.findFunction("'%edm::EDProducer::doEvent%'")
-    profile2 = IgProfFile(args[1])
-    function2 = profile2.findFunction("'%edm::EDProducer::doEvent%'")
+    #functions = profile1.findFunction("'%CalorimetryManager::reconstruct%'")
+    functions = profile1.findFunction("'%edm::stream::EDProducerAdaptorBase::doEvent(edm::EventPrincipal%'")
+    print functions.keys()
+    #functions = profile1.findFunction("'%edm::%::doEvent(edm::EventPrincipal%'")
+    
+    #profile2 = IgProfFile(args[1])
+    #function2 = profile2.findFunction("'%edm::EDProducer::doEvent%'")
     
     #print args[1],": contribution: ",round(
-    print "TrajectorySeedProducer2::produce: ",profile2.getCountFromId(profile2.findIdsFromName("'%TrajectorySeedProducer2::produce%'").values()[0])
-    print "total: ",profile2.getTotalCount(), function2.getCount()
+    #print "TrajectorySeedProducer2::produce: ",profile2.getCountFromId(profile2.findIdsFromName("'%TrajectorySeedProducer2::produce%'").values()[0])
+    #print "total: ",profile2.getTotalCount(), function2.getCount()
     #comparsionPlot=ComparisonPlot(function1,function2,match=lambda x,y: (x==y) or (x.find("TrajectorySeedProducer")!=-1 and y.find("TrajectorySeedProducer")!=-1))
     #comparsionPlot.plot(displayOnly=30,log=1)
     '''
-    compositionPlot = CompositionPlot(function)
-    compositionPlot.plot(displayOnly=20)
+    for k in functions.keys():
+        print k
+        compositionPlot = CompositionPlot(functions[k])
+        compositionPlot.plot()
     '''
-    
+    compositionPlot = CompositionPlot(functions.values()[1])
+    compositionPlot.plot(displayOnly=35,scaleFactor=0.006/20.)
